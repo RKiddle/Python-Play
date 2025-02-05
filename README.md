@@ -1,2 +1,2 @@
 # Python-Play
-The learn python packages
+To learn python packages.
