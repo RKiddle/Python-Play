@@ -1,0 +1,10 @@
+from rdkit import Chem
+from rdkit.Chem import Draw
+
+# Create a molecule from a SMILES string
+smiles = 'CO'  # Methanol
+molecule = Chem.MolFromSmiles(smiles)
+
+# Draw the molecule
+image = Draw.MolToImage(molecule)
+image.show()
