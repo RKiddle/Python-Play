@@ -1,0 +1,52 @@
+# Thai QR Payment OCR + Decoder
+# Author: Richard (Bangkok-based fintech infrastructure mapping)
+# Description: Extracts QR payload from image using OCR, then decodes EMVCo-compliant Thai QR Payment data
+
+import cv2
+import pytesseract
+import crcmod
+import re
+
+def extract_qr_payload(image_path: str) -> str:
+    """
+    Uses OCR to extract QR payload from image.
+    Assumes payload is printed as text near the QR code.
+    """
+    img = cv2.imread(image_path)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    text = pytesseract.image_to_string(gray, config=custom_config)
+    payloads = re.findall(r'000201\d{10,}', text)
+    return payloads[0] if payloads else None
+
+def parse_emvco_payload(payload: str) -> dict:
+    i = 0
+    result = {}
+    while i < len(payload):
+        tag = payload[i:i+2]
+        length = int(payload[i+2:i+4])
+        value = payload[i+4:i+4+length]
+        result[tag] = value
+        i += 4 + length
+    return result
+
+def validate_crc(payload: str) -> bool:
+    crc_func = crcmod.mkCrcFun(0x11021, initCrc=0xFFFF, rev=False, xorOut=0x0000)
+    payload_without_crc = payload[:-4]
+    expected_crc = payload[-4:]
+    calculated_crc = format(crc_func(payload_without_crc.encode('utf-8')), '04X')
+    return expected_crc.upper() == calculated_crc.upper()
+
+# Example usage
+image_path = "images/dessert_shop_qr.jpg"  # Replace with your image path
+qr_payload = extract_qr_payload(image_path)
+
+if qr_payload:
+    print("✅ QR Payload Extracted:", qr_payload)
+    parsed = parse_emvco_payload(qr_payload)
+    print("\n🔍 Parsed EMVCo Payload:")
+    for tag, value in parsed.items():
+        print(f"Tag {tag}: {value}")
+    print("\n🔐 CRC Valid:", validate_crc(qr_payload))
+else:
+    print("⚠️ No valid QR payload found via OCR.")
