@@ -1,0 +1,40 @@
+# Thai QR Payment Decoder
+# Author: Richard (Bangkok-based fintech infrastructure mapping)
+# Description: Decodes EMVCo-compliant Thai QR Payment payloads (PromptPay static/dynamic)
+
+import re
+import crcmod
+
+def parse_emvco_payload(payload: str) -> dict:
+    """
+    Parses EMVCo QR payload into a dictionary of tag-value pairs.
+    """
+    i = 0
+    result = {}
+    while i < len(payload):
+        tag = payload[i:i+2]
+        length = int(payload[i+2:i+4])
+        value = payload[i+4:i+4+length]
+        result[tag] = value
+        i += 4 + length
+    return result
+
+def validate_crc(payload: str) -> bool:
+    """
+    Validates CRC checksum at the end of the payload.
+    """
+    crc_func = crcmod.mkCrcFun(0x11021, initCrc=0xFFFF, rev=False, xorOut=0x0000)
+    payload_without_crc = payload[:-4]
+    expected_crc = payload[-4:]
+    calculated_crc = format(crc_func(payload_without_crc.encode('utf-8')), '04X')
+    return expected_crc.upper() == calculated_crc.upper()
+
+# Example usage
+qr_payload = "00020101021129370016A000000677010111011300660000000002580204000053037TH53037646304D2A5"  # Replace with actual payload
+parsed = parse_emvco_payload(qr_payload)
+
+print("✅ Parsed EMVCo Payload:")
+for tag, value in parsed.items():
+    print(f"Tag {tag}: {value}")
+
+print("\n🔍 CRC Valid:", validate_crc(qr_payload))
